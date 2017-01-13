@@ -25,6 +25,4 @@ public class DataPair {
     public void setOutput(double[] output) {
         this.output = output;
     }
-    
-    
 }

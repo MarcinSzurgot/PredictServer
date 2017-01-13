@@ -28,18 +28,18 @@ import main.java.healthkeeper.predictserver.learn.PredictionResult;
 
 @RestController
 public class LearnController {
-    public static final String DATA_SERVER_URL     = "http://health-keeper-api.gear.host/api";
-    public static final String USERS_URL           = DATA_SERVER_URL + "/Person";
-    public static final String MEASURES_URL        = DATA_SERVER_URL + "/Measurement";
-    public static final String ACCIDENT_URL        = DATA_SERVER_URL + "/Accident";
-    public static final String PERSON_ACCIDENT_URL = DATA_SERVER_URL + "/PersonAccident";
-    public static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";  
+    private static final String DATA_SERVER_URL     = "http://health-keeper-api.gear.host/api";
+    private static final String USERS_URL           = DATA_SERVER_URL + "/Person";
+    private static final String MEASURES_URL        = DATA_SERVER_URL + "/Measurement";
+    private static final String ACCIDENT_URL        = DATA_SERVER_URL + "/Accident";
+    private static final String PERSON_ACCIDENT_URL = DATA_SERVER_URL + "/PersonAccident";
+    private static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";  
     
     private static final long TIME_PROBE_SECONDS = 60 * 60 * 24; 
-    private static final long TIME_RETRAIN_MILLIS = 15 * 60 * 1000;
-    private static final long TIME_MAKE_PREDICTS = 60 * 60 * 24;
+    private static final long TIME_RETRAIN_MILLIS = 1000;
+    private static final long TIME_MAKE_PREDICTS = 1000;
     
-    private AccidentPredictor predictor = new AccidentPredictor();
+    private AccidentPredictor predictor;
     
     @Autowired
     private RestTemplate restTemplate;
@@ -57,12 +57,14 @@ public class LearnController {
     
     @Scheduled(fixedRate = TIME_MAKE_PREDICTS)
     public void makePredictions(){
-        List<PredictionResult> predictions = predictor.predict(getTrainData());
-        
-        System.out.println(new Gson().toJson(predictions));
+        if(predictor != null){
+            List<PredictionResult> predictions = predictor.predict(getTrainData());
+            
+            System.out.println(new Gson().toJson(predictions));
+        }
     }
     
-    public List<AverageMeasurement> getAverageMeasurements(
+    private List<AverageMeasurement> getAverageMeasurements(
             int personId,
             Date startPeriod, 
             Date endPeriod,
@@ -75,12 +77,12 @@ public class LearnController {
                 new TypeToken<List<AverageMeasurement>>(){}.getType());
      }
     
-    public List<PersonAccident> getPersonAccidents(){
+    private List<PersonAccident> getPersonAccidents(){
         return getJsonObject(PERSON_ACCIDENT_URL, 
                 new TypeToken<List<PersonAccident>>(){}.getType());
     }
     
-    public List<Accident> getAccidents(){
+    private List<Accident> getAccidents(){
         return getJsonObject(ACCIDENT_URL, 
                 new TypeToken<List<Accident>>(){}.getType());
     }
@@ -92,7 +94,10 @@ public class LearnController {
     }    
     
     private String trainAi(){
-        predictor.train(getTrainData());
+        if(predictor == null){
+            predictor = new AccidentPredictor();
+        }
+        predictor.train(getAccidents(), getTrainData());
         return "success";
     }
     
