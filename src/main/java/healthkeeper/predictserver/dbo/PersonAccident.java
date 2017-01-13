@@ -1,12 +1,18 @@
 package main.java.healthkeeper.predictserver.dbo;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class PersonAccident {
+    private static final String dateTimeStringFormat = 
+            "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    
     private int id;
     private String timestamp;
     private Person person;
     private Accident accident;
-    
-    
     
     public PersonAccident(int id, String timestamp, Person person, Accident accident) {
         super();
@@ -15,6 +21,18 @@ public class PersonAccident {
         this.person = person;
         this.accident = accident;
     }
+    
+    public Date getTimestampAsDate(){
+        Date date = null;
+        try {
+            date = new SimpleDateFormat(dateTimeStringFormat, 
+                    Locale.US).parse(getTimestamp());
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return date;
+    }
+    
     public PersonAccident() {
         super();
     }
@@ -47,7 +65,4 @@ public class PersonAccident {
         return "PersonAccident [id=" + id + ", timestamp=" + timestamp + ", person=" + person + ", accident=" + accident
                 + "]";
     }
-    
-    
-    
 }
