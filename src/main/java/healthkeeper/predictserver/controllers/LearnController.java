@@ -1,12 +1,14 @@
 package main.java.healthkeeper.predictserver.controllers;
 
 import java.lang.reflect.Type;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,9 +24,9 @@ import com.google.gson.reflect.TypeToken;
 import main.java.healthkeeper.predictserver.dbo.Accident;
 import main.java.healthkeeper.predictserver.dbo.AverageMeasurement;
 import main.java.healthkeeper.predictserver.dbo.PersonAccident;
+import main.java.healthkeeper.predictserver.dbo.PredictedPersonAccident;
 import main.java.healthkeeper.predictserver.learn.AccidentPredictor;
 import main.java.healthkeeper.predictserver.learn.DataPairRaw;
-import main.java.healthkeeper.predictserver.learn.PredictionResult;
 
 @RestController
 public class LearnController {
@@ -32,11 +34,12 @@ public class LearnController {
     private static final String ACCIDENT_URL        = DATA_SERVER_URL + "/Accident";
     private static final String PERSON_ACCIDENT_URL = DATA_SERVER_URL + "/PersonAccident";
     private static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";  
+    private static final String PREDICT_POST_URL    = DATA_SERVER_URL + "/PredictedPersonAccident";
     
     private static final int TIME_PROBE_SECONDS  = HealthKeeperGlobals.TIME_PROBE_SCONDS; 
     private static final int UPPER_BOUND_SECONDS = HealthKeeperGlobals.UPPER_BOUND_SECONDS;
     private static final int LOWER_BOUND_SECONDS = HealthKeeperGlobals.LOWER_BOUND_SECONDS;
-    private static final int TIME_RETRAIN_MILLIS = 1000;
+    private static final int TIME_RETRAIN_MILLIS = 1000000;
     private static final int TIME_MAKE_PREDICTS  = 1000;
     
     private AccidentPredictor predictor;
@@ -54,13 +57,14 @@ public class LearnController {
         trainAi();
     }
     
-    
     @Scheduled(fixedRate = TIME_MAKE_PREDICTS)
     public void makePredictions(){
         if(predictor != null){
-            List<PredictionResult> predictions = predictor.predict(getTrainData());
-            
-            System.out.println(new Gson().toJson(predictions));
+            List<PredictedPersonAccident> predictions = predictor.predict(getTrainDataMock());
+            for(PredictedPersonAccident prediction : predictions){
+                System.out.println(prediction);
+                restTemplate.postForObject(PREDICT_POST_URL, prediction, PredictedPersonAccident.class);
+            }
         }
     }
     
@@ -97,8 +101,38 @@ public class LearnController {
         if(predictor == null){
             predictor = new AccidentPredictor();
         }
-        predictor.train(getAccidents(), getTrainData());
+        predictor.train(getAccidents(), getTrainDataMock());
         return "success";
+    }
+    
+    private List<DataPairRaw> getTrainDataMock(){
+        List<Accident> accidents = getAccidents();
+        
+        String date = new SimpleDateFormat(AverageMeasurement.DATE_FORMAT).format(new Date());
+        Random rnd = new Random();
+        List<DataPairRaw> dataPairs = new ArrayList<>();
+        for(int i = 0; i < 10; ++i){
+            List<AverageMeasurement> avs = new ArrayList<>();
+            for(int j = 0; j < HealthKeeperGlobals.MEASURES_COUNT; ++j){
+                AverageMeasurement av = new AverageMeasurement(
+                        i * HealthKeeperGlobals.MEASURES_COUNT + j, i % 4, 
+                        rnd.nextDouble() * (AccidentPredictor.MAX_SYSTOLIC_PRESS - AccidentPredictor.MIN_SYSTOLIC_PRESS) + AccidentPredictor.MIN_SYSTOLIC_PRESS,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_DIASTOLIC_PRESS - AccidentPredictor.MIN_DIASTOLIC_PRESS) + AccidentPredictor.MIN_DIASTOLIC_PRESS, 
+                        rnd.nextDouble() * (AccidentPredictor.MAX_HEART_RATE - AccidentPredictor.MIN_HEART_RATE) + AccidentPredictor.MIN_HEART_RATE,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_TEMPERATURE - AccidentPredictor.MIN_TEMPERATURE) + AccidentPredictor.MIN_TEMPERATURE,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_SATURATION - AccidentPredictor.MIN_SATURATION) + AccidentPredictor.MIN_SATURATION,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_GLUCOSE - AccidentPredictor.MIN_GLUCOSE) + AccidentPredictor.MIN_GLUCOSE,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_CHOLESTEROL - AccidentPredictor.MIN_CHOLESTEROL) + AccidentPredictor.MIN_CHOLESTEROL,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_ALCOHOL - AccidentPredictor.MIN_ALCOHOL) + AccidentPredictor.MIN_ALCOHOL,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_SKIN_RESISTANCE - AccidentPredictor.MIN_SKIN_RESISTANCE) + AccidentPredictor.MIN_SKIN_RESISTANCE,
+                        rnd.nextDouble() * (AccidentPredictor.MAX_STEP_RATE - AccidentPredictor.MIN_STEP_RATE) + AccidentPredictor.MIN_STEP_RATE,
+                        date, date);
+                avs.add(av);
+            }
+            dataPairs.add(new DataPairRaw(avs, accidents.get(rnd.nextInt(accidents.size()))));
+        }
+        
+        return dataPairs;
     }
     
     private List<DataPairRaw> getTrainData(){

@@ -6,7 +6,7 @@ import java.util.Date;
 import java.util.Locale;
 
 public class PersonAccident {
-    private static final String dateTimeStringFormat = 
+    public static final String dateTimeStringFormat = 
             "yyyy-MM-dd'T'HH:mm:ss'Z'";
     
     private int id;
