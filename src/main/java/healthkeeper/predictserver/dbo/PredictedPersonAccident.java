@@ -1,5 +1,6 @@
 package main.java.healthkeeper.predictserver.dbo;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -29,6 +30,19 @@ public class PredictedPersonAccident {
         SimpleDateFormat format = new SimpleDateFormat(
                 PersonAccident.dateTimeStringFormat);
         setTimestamp(format.format(date));
+    }
+    
+    public Date getTimestampAsDate(){
+        SimpleDateFormat format = new SimpleDateFormat(
+                PersonAccident.dateTimeStringFormat);
+        
+        Date date = null;
+        try {
+            date = format.parse(getTimestamp());
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return date;
     }
     
     public void setTimestamp(String timestamp) {

@@ -69,6 +69,10 @@ public class AccidentPredictor {
     public AccidentPredictor(){
     }
     
+    public Map<Integer, Accident> getAccidentTypes(){
+        return accidentTypes;
+    }
+    
     public void train(
             List<Accident> accidentTypes,
             List<DataPairRaw> dataset){

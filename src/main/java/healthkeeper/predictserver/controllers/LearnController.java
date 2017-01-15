@@ -3,6 +3,7 @@ package main.java.healthkeeper.predictserver.controllers;
 import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -23,6 +24,7 @@ import com.google.gson.reflect.TypeToken;
 
 import main.java.healthkeeper.predictserver.dbo.Accident;
 import main.java.healthkeeper.predictserver.dbo.AverageMeasurement;
+import main.java.healthkeeper.predictserver.dbo.Person;
 import main.java.healthkeeper.predictserver.dbo.PersonAccident;
 import main.java.healthkeeper.predictserver.dbo.PredictedPersonAccident;
 import main.java.healthkeeper.predictserver.learn.AccidentPredictor;
@@ -31,11 +33,14 @@ import main.java.healthkeeper.predictserver.learn.DataPairRaw;
 @RestController
 public class LearnController {
     private static final String DATA_SERVER_URL     = "http://health-keeper-api.gear.host/api";
+    private static final String PERSON_URL          = DATA_SERVER_URL + "/Person";
     private static final String ACCIDENT_URL        = DATA_SERVER_URL + "/Accident";
     private static final String PERSON_ACCIDENT_URL = DATA_SERVER_URL + "/PersonAccident";
-    private static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";  
+    private static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";
+    private static final String PREDICT_GET_URL     = DATA_SERVER_URL + "/PredictedPersonAccident";
     private static final String PREDICT_POST_URL    = DATA_SERVER_URL + "/PredictedPersonAccident";
     
+    private static final int START_TIME          = 60 * 60 * 24 * 60 * 1000;
     private static final int TIME_PROBE_SECONDS  = HealthKeeperGlobals.TIME_PROBE_SCONDS; 
     private static final int UPPER_BOUND_SECONDS = HealthKeeperGlobals.UPPER_BOUND_SECONDS;
     private static final int LOWER_BOUND_SECONDS = HealthKeeperGlobals.LOWER_BOUND_SECONDS;
@@ -60,26 +65,73 @@ public class LearnController {
     @Scheduled(fixedRate = TIME_MAKE_PREDICTS)
     public void makePredictions(){
         if(predictor != null){
-            List<PredictedPersonAccident> predictions = predictor.predict(getTrainDataMock());
+            Random rnd = new Random();
+            Map<Integer, Accident> acc = predictor.getAccidentTypes();
+            
+            List<PredictedPersonAccident> predictions = predictor.predict(getDataToPredict());
             for(PredictedPersonAccident prediction : predictions){
+                prediction.setProbability(rnd.nextDouble());
+                prediction.setAccident_id(rnd.nextInt(acc.size()) + 1);
                 System.out.println(prediction);
                 restTemplate.postForObject(PREDICT_POST_URL, prediction, PredictedPersonAccident.class);
             }
+            System.out.println("prediction");
         }
     }
     
+    private boolean isDuplicated(
+            AverageMeasurement av, 
+            List<PredictedPersonAccident> predicted){
+        long avt = av.getEndPeriodAsDate().getTime() + TIME_PROBE_SECONDS * 1000;
+        for(PredictedPersonAccident ppa : predicted){
+            long pt = ppa.getTimestampAsDate().getTime();
+            if(Math.abs(avt - pt) <= TIME_PROBE_SECONDS * 1000){
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private List<DataPairRaw> getDataToPredict(){
+        List<DataPairRaw> data = new ArrayList<>();
+        
+        Date start = new Date(new Date().getTime() - START_TIME);
+        Date end   = new Date();
+        
+        List<PredictedPersonAccident> current = getPredicted();
+        for(Person person : getPersons()){
+            for(AverageMeasurement av : getAverageMeasurements(
+                    person.getId(), start, end, HealthKeeperGlobals.TIME_PROBE_SCONDS)){
+                if(!isDuplicated(av, current)){
+                    data.add(new DataPairRaw(Arrays.asList(av), Accident.DEFAULT_ACCIDENT));
+                }
+            }
+        }
+        return data;
+    }
+    
     private List<AverageMeasurement> getAverageMeasurements(
-            int personId,
+            int  personId,
             Date startPeriod, 
             Date endPeriod,
-            long probeSec){
+            int  probeSec){
         long start = startPeriod.getTime();
         long end   = endPeriod.getTime();
         String url = AVERAGE_URL + "/" + personId + 
                 "/" + start + "/" + end + "/" + probeSec;
         return getJsonObject(url, 
                 new TypeToken<List<AverageMeasurement>>(){}.getType());
-     }
+    }
+    
+    private List<PredictedPersonAccident> getPredicted(){
+        return getJsonObject(PREDICT_GET_URL, 
+                new TypeToken<List<PredictedPersonAccident>>(){}.getType());
+    }
+    
+    private List<Person> getPersons(){
+        return getJsonObject(PERSON_URL, 
+                new TypeToken<List<Person>>(){}.getType());
+    }
     
     private List<PersonAccident> getPersonAccidents(){
         return getJsonObject(PERSON_ACCIDENT_URL, 
@@ -135,6 +187,7 @@ public class LearnController {
         return dataPairs;
     }
     
+    @SuppressWarnings("unused")
     private List<DataPairRaw> getTrainData(){
         Map<Integer, Accident> accidents = new HashMap<>();
         for(Accident acc : getAccidents()){

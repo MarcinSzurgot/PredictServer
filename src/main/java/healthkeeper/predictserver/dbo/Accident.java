@@ -1,6 +1,8 @@
 package main.java.healthkeeper.predictserver.dbo;
 
 public class Accident {
+    public static final Accident DEFAULT_ACCIDENT = new Accident(1, "DEFAULT");
+    
     private int id;
     private String name;
     
