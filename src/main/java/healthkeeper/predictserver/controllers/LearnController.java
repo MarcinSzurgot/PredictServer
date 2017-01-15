@@ -29,15 +29,15 @@ import main.java.healthkeeper.predictserver.learn.PredictionResult;
 @RestController
 public class LearnController {
     private static final String DATA_SERVER_URL     = "http://health-keeper-api.gear.host/api";
-    private static final String USERS_URL           = DATA_SERVER_URL + "/Person";
-    private static final String MEASURES_URL        = DATA_SERVER_URL + "/Measurement";
     private static final String ACCIDENT_URL        = DATA_SERVER_URL + "/Accident";
     private static final String PERSON_ACCIDENT_URL = DATA_SERVER_URL + "/PersonAccident";
     private static final String AVERAGE_URL         = DATA_SERVER_URL + "/Average/params/all";  
     
-    private static final long TIME_PROBE_SECONDS = 60 * 60 * 24; 
-    private static final long TIME_RETRAIN_MILLIS = 1000;
-    private static final long TIME_MAKE_PREDICTS = 1000;
+    private static final int TIME_PROBE_SECONDS  = HealthKeeperGlobals.TIME_PROBE_SCONDS; 
+    private static final int UPPER_BOUND_SECONDS = HealthKeeperGlobals.UPPER_BOUND_SECONDS;
+    private static final int LOWER_BOUND_SECONDS = HealthKeeperGlobals.LOWER_BOUND_SECONDS;
+    private static final int TIME_RETRAIN_MILLIS = 1000;
+    private static final int TIME_MAKE_PREDICTS  = 1000;
     
     private AccidentPredictor predictor;
     
@@ -111,10 +111,10 @@ public class LearnController {
         for(PersonAccident pa : getPersonAccidents()){
             Calendar c = Calendar.getInstance();
             c.setTime(pa.getTimestampAsDate());
-            c.add(Calendar.HOUR, -48);
+            c.add(Calendar.SECOND, LOWER_BOUND_SECONDS);
             
             Date startPeriod = c.getTime();
-            c.add(Calendar.HOUR, 24);
+            c.add(Calendar.SECOND, UPPER_BOUND_SECONDS);
             Date endPeriod = c.getTime();
             
             List<AverageMeasurement> avMeasures = getAverageMeasurements(

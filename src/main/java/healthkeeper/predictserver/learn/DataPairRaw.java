@@ -34,6 +34,10 @@ public class DataPairRaw {
     public void setAccident(Accident accident) {
         this.accident = accident;
     }
+    
+    public boolean isEmpty(){
+        return avMeasures.isEmpty();
+    }
 
     @Override
     public String toString() {

@@ -4,6 +4,18 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.encog.engine.network.activation.ActivationSigmoid;
+import org.encog.ml.data.MLData;
+import org.encog.ml.data.MLDataPair;
+import org.encog.ml.data.MLDataSet;
+import org.encog.ml.data.basic.BasicMLData;
+import org.encog.ml.data.basic.BasicMLDataPair;
+import org.encog.ml.data.basic.BasicMLDataSet;
+import org.encog.neural.networks.BasicNetwork;
+import org.encog.neural.networks.layers.BasicLayer;
+import org.encog.neural.networks.training.Train;
+import org.encog.neural.networks.training.propagation.resilient.ResilientPropagation;
+
 import main.java.healthkeeper.predictserver.dbo.Accident;
 import main.java.healthkeeper.predictserver.dbo.AverageMeasurement;
 
@@ -42,13 +54,13 @@ public class AccidentPredictor {
             {MIN_STEP_RATE,       MAX_STEP_RATE}
     };
     
-    private static final int INPUT_PER_MEASURE = 10;
+    private static final int INPUT_PER_MEASURE = RANGE.length;
     private static final int MEASURE_PER_PREDICT = 24;
     private static final int INPUT_COUNT = 
             INPUT_PER_MEASURE * MEASURE_PER_PREDICT;
     
     private List<Accident> accidentTypes; 
-    private Predictor predictor;
+    private BasicNetwork network;
     
     public AccidentPredictor(){
     }
@@ -57,10 +69,29 @@ public class AccidentPredictor {
             List<Accident> accidentTypes,
             List<DataPairRaw> dataset){
         this.accidentTypes = accidentTypes;
-        System.out.println(accidentTypes);
         
-        predictor = new Predictor(INPUT_COUNT, accidentTypes.size());
-        predictor.train(getDataPairs(dataset));
+        int inp = INPUT_COUNT;
+        int out = accidentTypes.size() + 1;
+        int hid = (int) Math.sqrt(inp + out);
+        
+        network = new BasicNetwork();
+        network.addLayer(new BasicLayer(new ActivationSigmoid(), true, inp));
+        network.addLayer(new BasicLayer(new ActivationSigmoid(), true, hid));
+        network.addLayer(new BasicLayer(new ActivationSigmoid(), true, out));
+        network.getStructure().finalizeStructure();
+        network.reset();
+        
+        MLDataSet trainSet = getDataPairs(dataset);
+        final Train train = new ResilientPropagation(network, trainSet);
+        
+        int epoch = 1;
+        
+        do{
+            train.iteration();
+            System.out.println("Epoch #" + epoch + 
+                               " Error:" + train.getError());
+            epoch++;
+        }while(train.getError() > 0.1 && epoch < 10000);
     }
     
     public List<PredictionResult> predict(List<DataPairRaw> measures){
@@ -72,24 +103,28 @@ public class AccidentPredictor {
     }
     
     public PredictionResult predict(DataPairRaw measures){
-        DataPair data = convert(measures);
+        MLDataPair data = convert(measures);
         List<AverageMeasurement> avMeasures = measures.getAvMeasures();
         PredictionResult pr = new PredictionResult();
         pr.setDate(getCenterDate(avMeasures));
-        double[] output = predictor.predict(data.getInput());
+        
+        MLData output = network.compute(data.getInput());
         
         int personId = avMeasures.size() == 0 ? 1 : avMeasures.get(0).getPersonId();
-        for(int i = 0; i < output.length; ++i){
+        for(int i = 0; i < data.getIdealArray().length; ++i){
             pr.getAccidents().add(new AccidentProbability(
-                    output[i], accidentTypes.get(i), personId));
+                    output.getData(i), accidentTypes.get(i), personId));
         }
         return pr;
     }
     
-    private List<DataPair> getDataPairs(List<DataPairRaw> raws){
-        List<DataPair> pairs = new ArrayList<>();
+    private MLDataSet getDataPairs(List<DataPairRaw> raws){
+        MLDataSet pairs = new BasicMLDataSet();
         for(DataPairRaw raw : raws){
-            pairs.add(convert(raw));
+            System.out.println("Av: " + raw.getAvMeasures().size());
+            if(!raw.isEmpty()){
+                pairs.add(convert(raw));
+            }
         }
         return pairs;
     }
@@ -104,10 +139,9 @@ public class AccidentPredictor {
         return new Date(millis / count);
     }
     
-    private DataPair convert(DataPairRaw raw){
+    private MLDataPair convert(DataPairRaw raw){
         double[] input = new double[INPUT_COUNT];
         double[] output = new double[accidentTypes.size()];
-        DataPair pair = new DataPair(input, output);
         
         List<AverageMeasurement> avMeasures = raw.getAvMeasures();
         for(int i = 0; i < avMeasures.size(); ++i){
@@ -121,17 +155,19 @@ public class AccidentPredictor {
                     av.getGlucose(),
                     av.getCholesterol(),
                     av.getAlcohol(),
-                    av.getSkin_resistance()
+                    av.getSkin_resistance(),
+                    av.getStep_rate()
             };
-            
             normalize(input, data, MEASURE_PER_PREDICT * i);
             output[raw.getAccident().getId() - 1] = 1;
         }
-        return pair;
+        return new BasicMLDataPair(
+                new BasicMLData(input), 
+                new BasicMLData(output));
     }
     
     private void normalize(double[] input, double[] data,  int srcIndex){
-        for(int i = 0; i < input.length; ++i){
+        for(int i = 0; i < data.length; ++i){
             input[srcIndex + i] = (data[i] - RANGE[i][0]) / (RANGE[i][1] - RANGE[i][0]);
         }
     }
