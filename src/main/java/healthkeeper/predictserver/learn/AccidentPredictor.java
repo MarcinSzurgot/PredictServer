@@ -63,6 +63,9 @@ public class AccidentPredictor {
     private static final int INPUT_COUNT = 
             INPUT_PER_MEASURE * MEASURE_PER_PREDICT;
     
+    private static final double TARGET_ERROR = 0.03;
+    private static final double EPOCHS_LIMIT = 10;
+    
     private Map<Integer, Accident> accidentTypes; 
     private BasicNetwork network;
     
@@ -98,10 +101,8 @@ public class AccidentPredictor {
         int epoch = 0;
         do{
             train.iteration();
-            System.out.println("Epoch #" + epoch + 
-                               " Error:" + train.getError());
             epoch++;
-        }while(train.getError() > 0.03 && epoch < 10000);
+        }while(train.getError() > TARGET_ERROR && epoch < EPOCHS_LIMIT);
     }
     
     public List<PredictedPersonAccident> predict(List<DataPairRaw> measures){
@@ -128,7 +129,7 @@ public class AccidentPredictor {
                 index = i;
             }
         }
-        int personId = avMeasures.size() == 0 ? 1 : avMeasures.get(0).getPersonId();
+        int personId = avMeasures.size() == 0 ? 1 : avMeasures.get(0).getPerson_id();
         pr.setPerson_id(personId);
         pr.setAccident_id(accidentTypes.get(index + 1).getId());
         return pr;
@@ -147,11 +148,9 @@ public class AccidentPredictor {
     private Date getCenterDate(List<AverageMeasurement> avMeasures){
         long millis = 0;
         for(AverageMeasurement av : avMeasures){
-            millis += av.getStartingPeriodAsDate().getTime();
-            millis += av.getEndPeriodAsDate()     .getTime();
+            millis = Math.max(av.getEndPeriodAsDate().getTime(), millis);
         }
-        int count = 2 * (avMeasures.size() == 0 ? 1 : avMeasures.size());
-        return new Date(millis / count + HealthKeeperGlobals.UPPER_BOUND_SECONDS * 1000);
+        return new Date(millis + HealthKeeperGlobals.UPPER_BOUND_SECONDS * 1000);
     }
     
     private MLDataPair convert(DataPairRaw raw){

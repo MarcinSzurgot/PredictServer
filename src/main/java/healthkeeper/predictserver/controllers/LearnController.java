@@ -44,7 +44,7 @@ public class LearnController {
     private static final int TIME_PROBE_SECONDS  = HealthKeeperGlobals.TIME_PROBE_SCONDS; 
     private static final int UPPER_BOUND_SECONDS = HealthKeeperGlobals.UPPER_BOUND_SECONDS;
     private static final int LOWER_BOUND_SECONDS = HealthKeeperGlobals.LOWER_BOUND_SECONDS;
-    private static final int TIME_RETRAIN_MILLIS = 1000000;
+    private static final int TIME_RETRAIN_MILLIS = 20000;
     private static final int TIME_MAKE_PREDICTS  = 1000;
     
     private AccidentPredictor predictor;
@@ -72,10 +72,9 @@ public class LearnController {
             for(PredictedPersonAccident prediction : predictions){
                 prediction.setProbability(rnd.nextDouble());
                 prediction.setAccident_id(rnd.nextInt(acc.size()) + 1);
-                System.out.println(prediction);
                 restTemplate.postForObject(PREDICT_POST_URL, prediction, PredictedPersonAccident.class);
             }
-            System.out.println("prediction");
+            System.out.println("Prediction");
         }
     }
     
@@ -154,6 +153,7 @@ public class LearnController {
             predictor = new AccidentPredictor();
         }
         predictor.train(getAccidents(), getTrainDataMock());
+        System.out.println("Trained");
         return "success";
     }
     

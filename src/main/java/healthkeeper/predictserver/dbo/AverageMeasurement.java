@@ -10,7 +10,7 @@ public class AverageMeasurement {
     public static final String DATE_FORMAT = "MM/dd/yyyy KK:mm:ss a";
     
     private int id;
-    private int personId;
+    private int person_id;
     private double systolic_press;
     private double diastolic_press;
     private double heart_rate; 
@@ -28,12 +28,14 @@ public class AverageMeasurement {
         super();
     }
     
-    public AverageMeasurement(int id, int personId, double systolic_press, double diastolic_press, double heart_rate,
+    
+    
+    public AverageMeasurement(int id, int person_id, double systolic_press, double diastolic_press, double heart_rate,
             double temperature, double saturation, double glucose, double cholesterol, double alcohol,
             double skin_resistance, double step_rate, String starting_period, String end_period) {
-        super();
+        this();
         this.id = id;
-        this.personId = personId;
+        this.person_id = person_id;
         this.systolic_press = systolic_press;
         this.diastolic_press = diastolic_press;
         this.heart_rate = heart_rate;
@@ -47,7 +49,21 @@ public class AverageMeasurement {
         this.starting_period = starting_period;
         this.end_period = end_period;
     }
-    
+
+
+
+    public int getPerson_id() {
+        return person_id;
+    }
+
+
+
+    public void setPerson_id(int person_id) {
+        this.person_id = person_id;
+    }
+
+
+
     private static Date getAsDate(String strDate){
         DateFormat df = new SimpleDateFormat(
                 DATE_FORMAT, Locale.ENGLISH);
@@ -73,12 +89,6 @@ public class AverageMeasurement {
     }
     public void setId(int id) {
         this.id = id;
-    }
-    public int getPersonId() {
-        return personId;
-    }
-    public void setPersonId(int personId) {
-        this.personId = personId;
     }
     public double getSystolic_press() {
         return systolic_press;
@@ -153,14 +163,17 @@ public class AverageMeasurement {
         this.end_period = end_period;
     }
 
+
+
     @Override
     public String toString() {
-        return "AverageMeasurement [id=" + id + ", personId=" + personId + ", systolic_press=" + systolic_press
+        return "AverageMeasurement [id=" + id + ", person_id=" + person_id + ", systolic_press=" + systolic_press
                 + ", diastolic_press=" + diastolic_press + ", heart_rate=" + heart_rate + ", temperature=" + temperature
                 + ", saturation=" + saturation + ", glucose=" + glucose + ", cholesterol=" + cholesterol + ", alcohol="
                 + alcohol + ", skin_resistance=" + skin_resistance + ", step_rate=" + step_rate + ", starting_period="
                 + starting_period + ", end_period=" + end_period + "]";
     }
  
+    
     
 }
